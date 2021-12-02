@@ -12,11 +12,8 @@ impl FromStr for Instruction {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut parts = s.split(" ");
-
-        let instruction_name = parts.next().unwrap();
-
-        let value: usize = parts.next().unwrap().parse().unwrap();
+        let (instruction_name, value) = s.split_once(' ').unwrap();
+        let value = value.parse().unwrap();
 
         let instruction = match instruction_name {
             "forward" => Forward(value),
@@ -44,6 +41,25 @@ fn part1(instructions: &[Instruction]) -> usize {
     x * y
 }
 
+fn part2(instructions: &[Instruction]) -> usize {
+    let mut x = 0;
+    let mut y = 0;
+    let mut aim = 0;
+
+    for instruction in instructions {
+        match instruction {
+            Forward(value) => {
+                x += value;
+                y += aim * value;
+            }
+            Down(value) => aim += value,
+            Up(value) => aim -= value,
+        }
+    }
+
+    x * y
+}
+
 fn main() {
     let input_file: &str = include_str!("input.txt");
     let instructions = input_file
@@ -54,5 +70,5 @@ fn main() {
     println!("Part 1:");
     println!("\t{}", part1(&instructions));
     println!("Part 2:");
-    // println!("\t{}", part2(&measurements));
+    println!("\t{}", part2(&instructions));
 }
