@@ -13,12 +13,21 @@ enum CharType {
 }
 
 impl CharType {
-    fn error_score(&self) -> i32 {
+    fn error_score(&self) -> i64 {
         match self {
             Parens => 3,
             Brackets => 57,
             Braces => 1197,
             Angle => 25137,
+        }
+    }
+
+    fn completion_score(&self) -> i64 {
+        match self {
+            Parens => 1,
+            Brackets => 2,
+            Braces => 3,
+            Angle => 4,
         }
     }
 }
@@ -87,6 +96,11 @@ impl Char {
             } => '>',
         }
     }
+
+    #[allow(dead_code)]
+    fn to_string(chars: &[Char]) -> String {
+        chars.iter().map(Char::to_char).collect()
+    }
 }
 
 fn parse_line(line: &str) -> Result<Vec<Char>, CharType> {
@@ -115,7 +129,7 @@ fn parse_line(line: &str) -> Result<Vec<Char>, CharType> {
     Ok(res)
 }
 
-fn part1(lines: &[&str]) -> i32 {
+fn part1(lines: &[&str]) -> i64 {
     let mut res = 0;
 
     for line in lines.iter() {
@@ -127,10 +141,35 @@ fn part1(lines: &[&str]) -> i32 {
     res
 }
 
+fn part2(lines: &[&str]) -> i64 {
+    let mut scores = lines
+        .iter()
+        .filter_map(|line| {
+            if let Ok(remaining) = parse_line(line) {
+                let completion_score = remaining
+                    .iter()
+                    .rev()
+                    .map(|c| c.char_type.completion_score())
+                    .fold(0, |acc, elem| acc * 5 + elem);
+
+                Some(completion_score)
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    scores.sort_unstable();
+
+    scores[scores.len() / 2]
+}
+
 fn main() {
     let input_file: &str = include_str!("input.txt");
     let lines = input_file.lines().collect::<Vec<_>>();
 
     println!("Part 1:");
     println!("\t{}", part1(&lines));
+    println!("Part 2:");
+    println!("\t{}", part2(&lines));
 }
