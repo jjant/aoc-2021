@@ -14,27 +14,7 @@ impl<T> Grid<T> {
         }
     }
 
-    fn extend<F>(&self, f: F) -> Grid<T>
-    where
-        F: Fn(&T, &[&T]) -> T,
-    {
-        let mut new_grid = Grid::new(self.width, self.height);
-
-        for y in 0..self.height {
-            for x in 0..self.width {
-                let val = self.get(x, y);
-                let neighbors = self.neighbors(x, y);
-
-                let res = f(val, &neighbors);
-
-                new_grid.grid.push(res);
-            }
-        }
-
-        new_grid
-    }
-
-    fn neighbors(&self, x: usize, y: usize) -> Vec<&T> {
+    fn neighbors(&self, x: usize, y: usize) -> Vec<(usize, usize, &T)> {
         let mut neighbors = vec![];
 
         let left = if x > 0 { Some((-1, 0)) } else { None };
@@ -52,7 +32,10 @@ impl<T> Grid<T> {
 
         for dir in &[left, right, top, bottom] {
             if let Some((dx, dy)) = dir {
-                neighbors.push(self.get((x as i32 + *dx) as usize, ((y as i32) + *dy) as usize));
+                let n_x = (x as i32 + *dx) as usize;
+                let n_y = (y as i32 + *dy) as usize;
+
+                neighbors.push((n_x, n_y, self.get(n_x, n_y)));
             }
         }
 
@@ -84,22 +67,76 @@ impl<T: Copy> Grid<T> {
     }
 }
 
+impl Grid<u32> {
+    fn find_minimums(&self) -> Vec<(usize, usize)> {
+        let mut res = vec![];
+
+        for x in 0..self.width {
+            for y in 0..self.height {
+                let neighbors = self.neighbors(x, y);
+
+                if neighbors
+                    .iter()
+                    .all(|(_, _, neighbor)| neighbor > &self.get(x, y))
+                {
+                    res.push((x, y))
+                }
+            }
+        }
+
+        res
+    }
+
+    fn basin(&self, x: usize, y: usize) -> Vec<&u32> {
+        let mut res = vec![];
+        self.dfs(x, y, &mut vec![false; self.width * self.height], &mut res);
+
+        res
+    }
+
+    fn dfs<'a>(&'a self, x: usize, y: usize, visited: &mut [bool], res: &mut Vec<&'a u32>) {
+        let current = self.get(x, y);
+        let neighbors = self.neighbors(x, y);
+
+        visited[x + y * self.width] = true;
+        res.push(current);
+
+        let real_neighbors = neighbors
+            .iter()
+            .filter(|(_, _, neighbor)| **neighbor < 9 && *neighbor > current);
+
+        for (n_x, n_y, _) in real_neighbors {
+            if !visited[n_x + n_y * self.width] {
+                self.dfs(*n_x, *n_y, visited, res);
+            }
+        }
+    }
+}
+
 fn part1(width: usize, height: usize, data: &[u32]) -> u32 {
     let grid = Grid::from_data(width, height, data);
 
-    let new_grid = grid.extend(|val, neighbors| {
-        let val_is_minimum = neighbors.iter().all(|neighbor| *neighbor > val);
+    grid.find_minimums()
+        .iter()
+        .map(|(x, y)| grid.get(*x, *y) + 1)
+        .sum()
+}
 
-        if val_is_minimum {
-            val + 1
-        } else {
-            0
-        }
-    });
+fn part2(width: usize, height: usize, data: &[u32]) -> u32 {
+    let grid = Grid::from_data(width, height, data);
 
-    let res: u32 = new_grid.grid.iter().sum::<u32>();
+    let minimums: Vec<(usize, usize)> = grid.find_minimums();
 
-    res
+    let mut basin_lengths = minimums
+        .iter()
+        .map(|(x, y)| grid.basin(*x, *y).len())
+        .collect::<Vec<_>>();
+
+    basin_lengths.sort_unstable();
+
+    let res: usize = basin_lengths.iter().rev().take(3).product();
+
+    res as u32
 }
 
 fn main() {
@@ -115,4 +152,6 @@ fn main() {
 
     println!("Part 1:");
     println!("\t{}", part1(width, height, &data));
+    println!("Part 2:");
+    println!("\t{}", part2(width, height, &data));
 }
